@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Load the dataset
-data = pd.read_csv("AUTOMOBILE_KSI_8496420770897814364.csv")
+data = pd.read_csv("TOTAL_KSI_6133740419123635124.csv")
 
 # Display basic information about the dataset
 print("Dataset Information:")
