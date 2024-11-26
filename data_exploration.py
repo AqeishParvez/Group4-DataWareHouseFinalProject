@@ -362,6 +362,27 @@ plt.show()
 # Amongst the categorical columns vehicl type and cyclist have the highest correlation with fatal accidents
 # This could indicate that the type of vehicle involved in an accident has a significant impact on the likelihood of fatalities
 
+# Analyze fatality rates by ROAD_CLASS
+road_class_fatalities = data.groupby('ROAD_CLASS')['IS_FATAL'].mean().sort_values(ascending=False)
+print(road_class_fatalities)
+
+# Visualize fatality rates by ROAD_CLASS
+plt.figure(figsize=(10, 6))
+sns.barplot(x=road_class_fatalities.index, y=road_class_fatalities.values, palette='viridis')
+plt.title("Fatality Rates by Road Class")
+plt.xlabel("Road Class")
+plt.ylabel("Fatality Rate")
+plt.show()
+
+# Compare ROAD_CLASS and LIGHT against fatalities
+plt.figure(figsize=(12, 8))
+sns.countplot(data=data, x='ROAD_CLASS', hue='LIGHT', palette='viridis')
+plt.title("Accidents by Road Class and Light Condition")
+plt.xlabel("Road Class")
+plt.ylabel("Count")
+plt.legend(title="Light Condition")
+plt.show()
+
 
 
 
