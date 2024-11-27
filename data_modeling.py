@@ -5,6 +5,10 @@ import pandas as pd
 data = pd.read_csv("TOTAL_KSI_6133740419123635124.csv")
 original_data = pd.read_csv("TOTAL_KSI_6133740419123635124.csv")  # Save a copy of the original data
 
+# Let's create the IS_FATAL Column just like we created it in the data_exploration.py file
+# Recreate IS_FATAL from original data
+data['IS_FATAL'] = data['ACCLASS'].apply(lambda x: 1 if x == 'Fatal' else 0)
+
 
 
 missing_values = data.isnull().sum()
@@ -138,10 +142,6 @@ for col in ['INVAGE', 'VEHTYPE', 'MANOEUVER', 'DRIVACT']:
     le = LabelEncoder()
     data[col] = le.fit_transform(data[col])
     label_encoders[col] = le  # Save encoders for potential decoding later
-
-# Let's create the IS_FATAL Column just like we created it in the data_exploration.py file
-# Recreate IS_FATAL from original data
-data['IS_FATAL'] = original_data['ACCLASS'].apply(lambda x: 1 if x == 'Fatal' else 0)
 
 print(data.columns) # Confirm that the Is_FATAL column is present
 
@@ -287,4 +287,191 @@ print(balanced_distribution)
 # 1    0.5
 # Name: proportion, dtype: float64
 
+# The class distribution is now balanced with 50% for each class (IS_FATAL = 0 and IS_FATAL = 1).
+# We can now proceed with training our model.
 
+# We'll start by training a simple logistic regression model to predict fatal accidents.
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, RocCurveDisplay
+
+# Initialize Logistic Regression model
+logistic_model = LogisticRegression(random_state=42, solver='liblinear' , max_iter=1000)
+
+# Train the model
+logistic_model.fit(X_train_balanced, y_train_balanced)
+
+# Evaluate the model on the test set
+y_pred = logistic_model.predict(X_test)
+print("Logistic Regression Evaluation:")
+print(classification_report(y_test, y_pred))
+
+#P recision, Recall, and F1-Score: All metrics are close to or equal to 1.0, meaning the model correctly classifies almost all cases, including the minority class (1).
+# Accuracy: 1.0, indicating perfect overall prediction accuracy on the test set.
+
+# Confusion matrix
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+#True Negatives: 3,252
+# False Positives: 6
+# False Negatives: 0
+# True Positives: 534
+# The model only misclassified 6 instances as positive when they were actually negative
+
+# ROC-AUC score
+roc_score = roc_auc_score(y_test, logistic_model.predict_proba(X_test)[:, 1])
+print(f"ROC-AUC Score: {roc_score}")
+
+# Plot ROC curve
+RocCurveDisplay.from_estimator(logistic_model, X_test, y_test)
+
+# The Receiver Operating Characteristic (ROC) curve shows the trade-off between the True Positive Rate (TPR) and the False Positive Rate (FPR) as the model's prediction threshold is varied.
+# A perfect area under the curve, indicating the model separates the classes flawlessly.
+# ROC Curve: The curve confirms perfect performance, with the model achieving a 1.0 True Positive Rate (TPR) and a 0.0 False Positive Rate (FPR).
+
+import pickle
+
+# Save the model
+with open('logistic_model.pkl', 'wb') as file:
+    pickle.dump(logistic_model, file)
+
+print("Model saved as logistic_model.pkl")
+
+# Let's move on to Decision Trees
+
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, RocCurveDisplay
+
+decision_tree_model = DecisionTreeClassifier(random_state=42)
+decision_tree_model.fit(X_train_balanced, y_train_balanced)
+
+# Evaluate Decision Tree
+y_pred = decision_tree_model.predict(X_test)
+print("Decision Tree Evaluation:")
+print(classification_report(y_test, y_pred))
+
+# Confusion matrix
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+# ROC-AUC score
+roc_score = roc_auc_score(y_test, decision_tree_model.predict_proba(X_test)[:, 1])
+print(f"ROC-AUC Score: {roc_score}")
+
+# Plot ROC curve
+RocCurveDisplay.from_estimator(decision_tree_model, X_test, y_test)
+
+# Comparison Between Logistic Regression and Decision Tree
+# Metric	            Logistic Regression	            Decision Tree
+# Precision (Class 1)	0.99	                        1.00
+# Recall (Class 1)	    1.00	                        1.00
+# F1-Score (Class 1)	0.99	                        1.00
+# Accuracy	            1.00	                        1.00
+# ROC-AUC	            1.0	                            1.0
+# Both models achieve near-perfect or perfect results, with the Decision Tree slightly outperforming Logistic Regression in precision for the minority class.
+
+from sklearn.tree import plot_tree
+import matplotlib.pyplot as plt
+
+# Visualize the decision tree
+plt.figure(figsize=(20, 10))  # Adjust the figure size as needed
+plot_tree(
+    decision_tree_model,
+    feature_names=X_train.columns,  # Column names for better interpretation
+    class_names=["Non-Fatal", "Fatal"],  # Target class names
+    filled=True,  # Color the nodes by class
+    rounded=True  # Round the boxes for better aesthetics
+)
+plt.title("Decision Tree Visualization")
+plt.show()
+
+
+# Save the Decision Tree model
+with open('decision_tree_model.pkl', 'wb') as file:
+    pickle.dump(decision_tree_model, file)
+
+print("Model saved as decision_tree_model.pkl")
+
+# Now let's use K-Fold Cross-Validation to evaluate the models
+
+from sklearn.model_selection import cross_val_score
+
+# Perform 5-Fold Cross-Validation
+logistic_cv_scores = cross_val_score(
+    logistic_model, X_train_balanced, y_train_balanced, cv=5, scoring='roc_auc'
+)
+
+# Print Cross-Validation Results
+print("Logistic Regression Cross-Validation Scores (ROC-AUC):", logistic_cv_scores)
+print("Mean ROC-AUC Score:", logistic_cv_scores.mean())
+
+# Perform 5-Fold Cross-Validation
+decision_tree_cv_scores = cross_val_score(
+    decision_tree_model, X_train_balanced, y_train_balanced, cv=5, scoring='roc_auc'
+)
+
+# Print Cross-Validation Results
+print("Decision Tree Cross-Validation Scores (ROC-AUC):", decision_tree_cv_scores)
+print("Mean ROC-AUC Score:", decision_tree_cv_scores.mean())
+
+# Calculate Feature Importances
+import pandas as pd
+
+feature_importances = pd.DataFrame({
+    'Feature': X_train.columns,
+    'Importance': decision_tree_model.feature_importances_
+}).sort_values(by='Importance', ascending=False)
+
+print(feature_importances)
+
+# Turns out we made a big error
+# The ACCCLASS column was included in the feature importance calculation, which is a data leakage issue.
+# The ACCCLASS column is a direct indicator of the accident classification, including the target variable IS_FATAL.
+# This column should not be used in feature importance calculations, as it would not be available in real-world scenarios.
+# We need to remove the ACCCLASS column from the feature importance calculation and recalculate the importances.
+
+# Drop ACCLASS and its derivatives
+acc_class_features = [col for col in data.columns if col.startswith('ACCLASS')]
+data = data.drop(columns=acc_class_features)
+
+# Verify the updated dataset
+print(data.columns)
+
+# Update X_train and X_test accordingly
+X_train = X_train.drop(columns=acc_class_features, errors='ignore')
+X_test = X_test.drop(columns=acc_class_features, errors='ignore')
+
+from imblearn.over_sampling import SMOTE
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, RocCurveDisplay
+
+# Update X_train_balanced by re-running SMOTE after dropping the ACCCLASS_* features
+smote = SMOTE(random_state=42)
+X_train_balanced, y_train_balanced = smote.fit_resample(X_train, y_train)
+
+# Retrain Logistic Regression
+logistic_model = LogisticRegression(random_state=42, solver='liblinear', max_iter=1000)
+logistic_model.fit(X_train_balanced, y_train_balanced)
+
+# Evaluate the model on the test set
+y_pred_logistic = logistic_model.predict(X_test)
+
+# Classification report
+print("Updated Logistic Regression Evaluation:")
+print(classification_report(y_test, y_pred_logistic))
+
+# Confusion matrix
+print("Confusion Matrix for Logistic Regression:")
+print(confusion_matrix(y_test, y_pred_logistic))
+
+# ROC-AUC score
+roc_auc_logistic = roc_auc_score(y_test, logistic_model.predict_proba(X_test)[:, 1])
+print(f"Updated ROC-AUC Score for Logistic Regression: {roc_auc_logistic}")
+
+# Plot ROC curve
+RocCurveDisplay.from_estimator(logistic_model, X_test, y_test)
+
+# The removal of the ACCLASS_* features caused the drop because these features were directly tied to the accident's outcome (fatal or not).
+# Without these features, the model must rely on other indirect features, which might not be as strongly correlated with the target variable.
+# Next Steps feature engineering, hyperparameter tuning, and model selection to improve the model's performance.
